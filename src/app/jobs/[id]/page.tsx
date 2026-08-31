@@ -103,6 +103,7 @@ export default function JobDetailPage() {
     onSuccess: (updatedJob) => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['jobs', jobId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       if (updatedJob.customer_id) {
         queryClient.invalidateQueries({
           queryKey: ['customer-jobs', updatedJob.customer_id],
@@ -122,6 +123,7 @@ export default function JobDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['receivables'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       router.push('/jobs');
     },
     onError: (err: Error) => {

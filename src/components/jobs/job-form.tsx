@@ -194,6 +194,7 @@ export function JobForm({ initialCustomerId, jobToEdit }: JobFormProps) {
     onSuccess: (savedJob) => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['jobs', savedJob.id] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       if (savedJob.customer_id) {
         queryClient.invalidateQueries({
           queryKey: ['customer-jobs', savedJob.customer_id],

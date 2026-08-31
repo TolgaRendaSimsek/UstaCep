@@ -102,6 +102,7 @@ export function PaymentModal({
       queryClient.invalidateQueries({ queryKey: ['jobs', jobId] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['receivables'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       handleOpenChange(false);
     },
     onError: (err: Error) => {

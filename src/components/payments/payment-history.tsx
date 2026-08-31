@@ -41,6 +41,7 @@ export function PaymentHistory({ jobId }: PaymentHistoryProps) {
       queryClient.invalidateQueries({ queryKey: ['jobs', jobId] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['receivables'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       setSelectedPaymentToDelete(null);
     },
     onError: (err: Error) => {
