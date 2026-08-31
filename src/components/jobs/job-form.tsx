@@ -19,8 +19,8 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { getCustomers } from '@/lib/queries/customers';
-import { createJob } from '@/lib/queries/jobs';
-import { Customer } from '@/types/database';
+import { createJob, updateJob } from '@/lib/queries/jobs';
+import { Customer, Job } from '@/types/database';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -52,10 +52,11 @@ const jobFormSchema = z.object({
   appointmentTime: z.string().optional(),
 });
 
-type JobFormValues = z.infer<typeof jobFormSchema>;
+export type JobFormValues = z.infer<typeof jobFormSchema>;
 
 interface JobFormProps {
   initialCustomerId?: string;
+  jobToEdit?: Job;
 }
 
 /**
@@ -70,9 +71,31 @@ function parseAppointmentDateTime(dateStr?: string, timeStr?: string): string | 
   return localDate.toISOString();
 }
 
-export function JobForm({ initialCustomerId }: JobFormProps) {
+/**
+ * Extracts YYYY-MM-DD and HH:mm strings from an ISO date string in local browser time.
+ */
+function extractLocalDateAndTime(isoString?: string | null): { date: string; time: string } {
+  if (!isoString) return { date: '', time: '' };
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return { date: '', time: '' };
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+
+  return {
+    date: `${year}-${month}-${day}`,
+    time: `${hours}:${minutes}`,
+  };
+}
+
+export function JobForm({ initialCustomerId, jobToEdit }: JobFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  const isEditMode = Boolean(jobToEdit);
 
   const [isCustomerSheetOpen, setIsCustomerSheetOpen] = useState(false);
   const [customerSearchQuery, setCustomerSearchQuery] = useState('');
@@ -89,6 +112,10 @@ export function JobForm({ initialCustomerId }: JobFormProps) {
     queryFn: getCustomers,
   });
 
+  const defaultDateTime = useMemo(() => {
+    return extractLocalDateAndTime(jobToEdit?.appointment_date);
+  }, [jobToEdit]);
+
   const {
     register,
     handleSubmit,
@@ -98,29 +125,29 @@ export function JobForm({ initialCustomerId }: JobFormProps) {
   } = useForm<JobFormValues>({
     resolver: zodResolver(jobFormSchema),
     defaultValues: {
-      customer_id: '',
-      title: '',
-      description: '',
-      price: '',
-      appointmentDate: '',
-      appointmentTime: '',
+      customer_id: jobToEdit?.customer_id || '',
+      title: jobToEdit?.title || '',
+      description: jobToEdit?.description || '',
+      price: typeof jobToEdit?.price === 'number' && jobToEdit.price > 0 ? String(jobToEdit.price) : '',
+      appointmentDate: defaultDateTime.date,
+      appointmentTime: defaultDateTime.time,
     },
   });
 
   const selectedCustomerId = useWatch({ control, name: 'customer_id' });
 
-  // Customer preselection logic: If initialCustomerId is passed, verify and preselect
+  // Preselect logic for initialCustomerId (creation mode) or initial customer_id in edit mode
   useEffect(() => {
-    if (initialCustomerId && customers.length > 0) {
+    if (!isEditMode && initialCustomerId && customers.length > 0) {
       const exists = customers.some((c) => c.id === initialCustomerId);
       if (exists) {
         setValue('customer_id', initialCustomerId, { shouldValidate: true });
       }
     }
-  }, [initialCustomerId, customers, setValue]);
+  }, [isEditMode, initialCustomerId, customers, setValue]);
 
   // Selected customer object for UI display
-  const selectedCustomer = customers.find((c) => c.id === selectedCustomerId) || null;
+  const selectedCustomer = customers.find((c) => c.id === selectedCustomerId) || jobToEdit?.customer || null;
 
   // Filtered customer list for modal search
   const filteredCustomers = useMemo(() => {
@@ -133,8 +160,8 @@ export function JobForm({ initialCustomerId }: JobFormProps) {
     );
   }, [customers, customerSearchQuery]);
 
-  // Job creation mutation
-  const createJobMutation = useMutation({
+  // Submit mutation (Handles Create or Edit)
+  const jobMutation = useMutation({
     mutationFn: async (values: JobFormValues) => {
       const parsedPrice =
         values.price && values.price.trim() !== ''
@@ -146,34 +173,50 @@ export function JobForm({ initialCustomerId }: JobFormProps) {
         values.appointmentTime
       );
 
-      return await createJob({
-        customer_id: values.customer_id,
-        title: values.title,
-        description: values.description,
-        price: parsedPrice,
-        appointment_date: appointmentIso,
-      });
-    },
-    onSuccess: (newJob) => {
-      queryClient.invalidateQueries({ queryKey: ['jobs'] });
-      if (newJob.customer_id) {
-        queryClient.invalidateQueries({
-          queryKey: ['customer-jobs', newJob.customer_id],
+      if (isEditMode && jobToEdit) {
+        return await updateJob(jobToEdit.id, {
+          customer_id: values.customer_id,
+          title: values.title,
+          description: values.description,
+          price: parsedPrice,
+          appointment_date: appointmentIso,
+        });
+      } else {
+        return await createJob({
+          customer_id: values.customer_id,
+          title: values.title,
+          description: values.description,
+          price: parsedPrice,
+          appointment_date: appointmentIso,
         });
       }
-      router.push(`/jobs/${newJob.id}`);
+    },
+    onSuccess: (savedJob) => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['jobs', savedJob.id] });
+      if (savedJob.customer_id) {
+        queryClient.invalidateQueries({
+          queryKey: ['customer-jobs', savedJob.customer_id],
+        });
+      }
+      router.push(`/jobs/${savedJob.id}`);
     },
     onError: (err: Error) => {
       setSubmitError(
-        err.message || 'İş kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.'
+        err.message ||
+          (isEditMode
+            ? 'İş güncellenirken bir hata oluştu. Lütfen tekrar deneyin.'
+            : 'İş kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.')
       );
     },
   });
 
   const onSubmit = (data: JobFormValues) => {
     setSubmitError(null);
-    createJobMutation.mutate(data);
+    jobMutation.mutate(data);
   };
+
+  const cancelHref = isEditMode && jobToEdit ? `/jobs/${jobToEdit.id}` : '/jobs';
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-lg mx-auto pb-8">
@@ -354,17 +397,21 @@ export function JobForm({ initialCustomerId }: JobFormProps) {
         <Button
           type="submit"
           className="w-full min-h-[52px] text-base font-bold bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/30 rounded-xl"
-          disabled={createJobMutation.isPending}
+          disabled={jobMutation.isPending}
         >
-          {createJobMutation.isPending ? 'Kaydediliyor...' : 'İşi Kaydet'}
+          {jobMutation.isPending
+            ? 'Kaydediliyor...'
+            : isEditMode
+            ? 'Değişiklikleri Kaydet'
+            : 'İşi Kaydet'}
         </Button>
 
-        <Link href="/jobs" className="block text-center">
+        <Link href={cancelHref} className="block text-center">
           <Button
             type="button"
             variant="ghost"
             className="w-full text-slate-400 hover:text-slate-200"
-            disabled={createJobMutation.isPending}
+            disabled={jobMutation.isPending}
           >
             Vazgeç
           </Button>
