@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Briefcase, Plus } from 'lucide-react';
@@ -14,10 +15,12 @@ export default function JobsPage() {
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">Tüm aktif ve tamamlanan servis işleri</p>
         </div>
-        <Button className="w-full sm:w-auto shadow-md shadow-blue-600/30">
-          <Plus className="w-4 h-4" />
-          <span>+ Yeni İş Ekle</span>
-        </Button>
+        <Link href="/jobs/new">
+          <Button className="w-full sm:w-auto shadow-md shadow-blue-600/30">
+            <Plus className="w-4 h-4" />
+            <span>+ Yeni İş Ekle</span>
+          </Button>
+        </Link>
       </div>
 
       <Card>

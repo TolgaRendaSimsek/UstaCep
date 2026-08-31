@@ -14,6 +14,7 @@ import {
   ArrowLeft,
   AlertCircle,
   Briefcase,
+  Plus,
 } from 'lucide-react';
 import { getCustomerById, deleteCustomer } from '@/lib/queries/customers';
 import { Button } from '@/components/ui/button';
@@ -105,8 +106,15 @@ export default function CustomerDetailPage() {
           </h2>
         </div>
 
-        {/* Edit & Delete Actions */}
+        {/* Edit & Delete & New Job Actions */}
         <div className="flex items-center gap-2 shrink-0">
+          <Link href={`/jobs/new?customerId=${customer.id}`}>
+            <Button size="sm" className="gap-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/30">
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Yeni İş</span>
+            </Button>
+          </Link>
+
           <Link href={`/customers/${customer.id}/edit`}>
             <Button variant="outline" size="sm" className="gap-1.5 text-xs">
               <Edit2 className="w-3.5 h-3.5" />
