@@ -37,6 +37,24 @@ export interface Job {
   customer?: Customer;
 }
 
+export interface Payment {
+  id: string;
+  user_id: string;
+  job_id: string;
+  amount: number;
+  status: PaymentStatus;
+  payment_date: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface PaymentSummary {
+  totalPrice: number;
+  totalPaid: number;
+  remainingBalance: number;
+  paymentState: PaymentStatus;
+}
+
 export type Json =
   | string
   | number
